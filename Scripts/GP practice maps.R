@@ -80,7 +80,7 @@ postcode_lkp <- read_in_postcodes() %>%
   select(postcode, grid_reference_easting, grid_reference_northing, latitude, longitude, datazone2011, 
          hscp2019name, hscp2019, hb2019name, hb2019)
 
-prac <- phsopendata::get_resource("0d2e258a-1451-4af1-a7e5-e8327994fa55", row_filters = list(HB = "S08000032")) %>% 
+prac <- phsopendata::get_resource("0d2e258a-1451-4af1-a7e5-e8327994fa55", row_filters = list(HB = "S08000032")) %>% # Filters For HB
   clean_names()|> 
   as.data.frame() |> 
   ungroup()
@@ -97,7 +97,7 @@ prac <- prac %>%
 markers_gp <- left_join(prac, postcode_lkp, by = "postcode") %>% 
   mutate(type = "GP Practice") %>% 
   #filter out HSCP for map
-  filter(hb2019name == 'NHS Lanarkshire') |> 
+  filter(hb2019name == 'NHS Lanarkshire') |> # Filters For HB
   left_join(lookup, by ='datazone2011')
 
 
@@ -114,7 +114,7 @@ shp <- shp |>
 
 shp_hscp <- shp |> 
   #filter(hscp2019name == HSCP)
-  filter(hb2019name == 'NHS Lanarkshire')
+  filter(hb2019name == 'NHS Lanarkshire') # Filters For HB
 
 ###Add colours to localities based on number of localities 
 

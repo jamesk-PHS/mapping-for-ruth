@@ -20,6 +20,11 @@
 
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
+# 0. User Inputs ----
+
+healthboard_oi <- "Forth Valley"
+
+
 # 1 Housekeeping, setup, etc. ---------------------------------------------
 
 library(tidyverse) # General data maniupulation package
@@ -29,6 +34,64 @@ library(ckanr) # Web scraping
 library(rvest) # Web scraping 
 
 gc() # Tidying environment
+
+
+# 1.1. Format User Inputs ----
+
+source("Scripts/HB Name To Readable Function.R")
+
+healthboard_oi <-  readable_HB_name(healthboard_oi)
+
+# 1.2. Get Necessary Geogrpahy Data ----
+
+most_recent_hb_code_lookup = package_show(id = "geography-codes-and-labels", url = "https://www.opendata.nhs.scot/", as = "table")[["resources"]] %>%
+  as_tibble() %>%
+  select(id, name, created) %>%
+  arrange(desc(created)) %>%
+  filter(name == "Health Board 2014 - Health Board 2019") %>%
+  filter(created == max(created)) %>%
+  pull(id)
+
+hb_code_oi <- get_resource(most_recent_hb_code_lookup) %>%
+  group_by(HBName) %>%
+  filter(HBDateEnacted == max(HBDateEnacted)) %>%
+  ungroup() %>%
+  mutate(HBName = readable_HB_name(HBName)) %>%
+  filter(HBName == healthboard_oi) %>%
+  distinct(HB,HBName)
+
+
+most_recent_council_area_lookup = package_show(id = "geography-codes-and-labels", url = "https://www.opendata.nhs.scot/", as = "table")[["resources"]] %>%
+  as_tibble() %>%
+  select(id, name, created) %>%
+  arrange(desc(created)) %>%
+  filter(name == "Council Area 2011 - Council Area 2019") %>%
+  filter(created == max(created)) %>%
+  pull(id)
+
+local_authorities_oi <- get_resource(most_recent_council_area_lookup) %>%
+  group_by(HBName) %>%
+  filter(HBDateEnacted == max(HBDateEnacted)) %>%
+  ungroup() %>%
+  mutate(HBName = readable_HB_name(HBName)) %>%
+  filter(HBName == healthboard_oi) %>%
+  distinct(CA,CAName)
+
+most_recent_hscp_code_lookup = package_show(id = "geography-codes-and-labels", url = "https://www.opendata.nhs.scot/", as = "table")[["resources"]] %>%
+  as_tibble() %>%
+  select(id, name, created) %>%
+  arrange(desc(created)) %>%
+  filter(name == "Health and Social Care Partnership 2016 - 2019") %>%
+  filter(created == max(created)) %>%
+  pull(id)
+
+hscps_oi <- get_resource(most_recent_hscp_code_lookup) %>%
+  group_by(HBName) %>%
+  filter(HBDateEnacted == max(HBDateEnacted)) %>%
+  ungroup() %>%
+  mutate(HBName = readable_HB_name(HBName)) %>%
+  filter(HBName == healthboard_oi) %>%
+  distinct(HSCP,HSCPName)
 
 
 # 2. Loading location data ------------------------------------------------
@@ -57,6 +120,20 @@ pharmacy_filter <- GP_Locations$practice_code
 # Identify most recent data
 link = "https://www.careinspectorate.com/index.php/publications-statistics/93-public/datastore"
 
+# most_recent_care_home_data_url = read_html(link) %>% 
+#   html_elements(css = ".button") %>%
+#   html_attr(name = "href") %>%
+#   na.omit() %>%
+#   as.character() %>%
+#   data.frame(full_url=.) %>%
+#   mutate(end_of_url=str_split(full_url,"/")) %>%
+#   mutate(end_of_url=unlist(lapply(end_of_url,last))) %>%
+#   mutate(date=as.Date(end_of_url,"MDSF_data_%d %B %Y.csv")) %>%
+#   na.omit() %>%
+#   filter(date == max(date)) %>%
+#   pull(full_url) %>%
+#   gsub(" ","%20",.)
+
 most_recent_care_home_data_url = read_html(link) %>% 
   html_elements(css = ".button") %>%
   html_attr(name = "href") %>%
@@ -65,11 +142,11 @@ most_recent_care_home_data_url = read_html(link) %>%
   data.frame(full_url=.) %>%
   mutate(end_of_url=str_split(full_url,"/")) %>%
   mutate(end_of_url=unlist(lapply(end_of_url,last))) %>%
-  mutate(date=as.Date(end_of_url,"MDSF_data_%d %B %Y.csv")) %>%
-  na.omit() %>%
-  filter(date == max(date)) %>%
-  pull(full_url) %>%
-  gsub(" ","%20",.)
+  filter(grepl(".csv",end_of_url)) %>%
+  mutate(number=parse_number(end_of_url)) %>%
+  filter(number == max(number)) %>%
+  pull(full_url) 
+
 
 # Extract most recent data
 Care_Service_Locations <- read_csv(paste0("https://www.careinspectorate.com",most_recent_care_home_data_url)) %>%
@@ -86,7 +163,11 @@ most_recent_hospital_info = package_show(id = "nhs-scotland-accident-emergency-s
   pull(id)
 
 Hospital_Info <- get_resource(most_recent_hospital_info)  %>%
-  dplyr::select(hosp_code=TreatmentLocationCode,hosp_name=TreatmentLocationName,type=CurrentDepartmentType,status=Status)
+  dplyr::select(hosp_code=TreatmentLocationCode,hosp_name=TreatmentLocationName,type=CurrentDepartmentType,status=Status) %>% 
+  # Converting Type codes into descriptive category
+  mutate(type = case_when(type == "Type 1" ~ "Emergency Department",
+                          type == "Type 2" ~ "Emergency Department",
+                          type == "Type 3" ~ "Minor Injuries Unit/Other"))
 
 # Determines *location* of hospitals
 most_recent_hospital_codes_info = package_show(id = "hospital-codes", url = "https://www.opendata.nhs.scot/", as = "table")[["resources"]] %>%
@@ -97,15 +178,11 @@ most_recent_hospital_codes_info = package_show(id = "hospital-codes", url = "htt
   pull(id)
 
 Hospital_Locations <-   get_resource(most_recent_hospital_codes_info)  %>%
-  dplyr::select(hosp_code=HospitalCode,postcode=Postcode)
+  dplyr::select(hosp_code=HospitalCode,hosp_name=HospitalName,postcode=Postcode)
 
 ### Combining hospital data ----
 Hospital_Locations_Full <- Hospital_Info %>%
-  left_join(Hospital_Locations,by=c("hosp_code")) %>% 
-  # Converting Type codes into descriptive category
-  mutate(type = case_when(type == "Type 1" ~ "Emergency Department",
-                          type == "Type 2" ~ "Emergency Department",
-                          type == "Type 3" ~ "Minor Injuries Unit/Other"))
+  left_join(Hospital_Locations,by=c("hosp_code","hosp_name")) 
 
 ## 2.4 Pharmacy locations ----
 
@@ -141,11 +218,15 @@ Dentist_Locations <- get_resource(most_recent_dentist_sites) %>%
 
 ## 2.6. Other Services ----
 
-Community_Hospital_Locations <- readxl::read_xlsx("Extra sites data.xlsx") %>% 
-  dplyr::select(code, name, postcode) %>%
-  mutate(code = as.character(code))
+Other_Hospital_Locations <- Hospital_Locations %>% 
+  dplyr::select(hosp_code, hosp_name, postcode) %>%
+  anti_join(Hospital_Locations_Full,by=c("hosp_code"))
   
+# Community_Hospital_Locations <- readxl::read_xlsx("Extra sites data.xlsx") %>% 
+#   dplyr::select(code, name, postcode) %>%
+#   mutate(code = as.character(code))
 
+Community_Hospital_Locations <- Other_Hospital_Locations
 
 # 3. Split Some Data Into Service Types ----
 
@@ -228,11 +309,16 @@ Dentist_Locations <- Dentist_Locations %>%
   mutate(code=as.character(code)) %>%
   mutate(source = "Opendata etc.")
 
-Community_Hospital_Locations <- Community_Hospital_Locations %>% 
-  mutate(service_type="Community hospital") %>%
-  mutate(code=as.character(code)) %>%
-  mutate(source = "Board website")
+# Community_Hospital_Locations <- Community_Hospital_Locations %>% 
+#   mutate(service_type="Community hospital") %>%
+#   mutate(code=as.character(code)) %>%
+#   mutate(source = "Board website")
 
+Community_Hospital_Locations <- Community_Hospital_Locations %>%
+  dplyr::select(code=hosp_code,name= hosp_name,postcode) %>%
+  mutate(service_type="Other Hospitals") %>%
+  mutate(code=as.character(code)) %>%
+  mutate(source = "Opendata etc.")
 
 # 5. Combine All Services Data ----
 
@@ -344,7 +430,8 @@ rm(DataZone_Lookup, Large_Geography_Lookup, Postcode_Lookup)
 
 # 8. Filter For Location Of Interest ----
 
-All_Services_Locations <- All_Services_Locations %>%
-  filter(hb2019name == "NHS Lanarkshire")
+All_Services_Locations_filtered <- All_Services_Locations %>%
+  mutate(hb2019name = readable_HB_name(hb2019name)) %>%
+  filter(hb2019name == healthboard_oi)
 
 

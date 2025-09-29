@@ -20,7 +20,7 @@ rail_network <- read_sf("UK_Railways/Railway.shp") %>%
 
 pal <- colorFactor(
   palette = c('#f0c28d', '#f88de6', '#2596be', 'darkred', '#6ea728', "red", "#6f7e28"),
-  domain = All_Services_Locations$service_type
+  domain = All_Services_Locations_filtered$service_type
 )
 
 
@@ -32,7 +32,10 @@ logos <- awesomeIconList(
     markerColor = "beige"),
   "Community hospital"= makeAwesomeIcon(
     icon = "glyphicon-heart",
-    markerColor = "pink"),  
+    markerColor = "pink"), 
+  "Other Hospitals"= makeAwesomeIcon(
+    icon = "glyphicon-heart",
+    markerColor = "pink"), 
   "Dentist"= makeAwesomeIcon(
     icon = "glyphicon-apple",
     markerColor = "blue"),
@@ -48,11 +51,12 @@ logos <- awesomeIconList(
   "Pharmacy"= makeAwesomeIcon(
     icon = "glyphicon-plus-sign",
     markerColor = "darkgreen")
+  
 )
   
 
 # Create transport links baseline map
-base_map <- All_Services_Locations %>% 
+base_map <- All_Services_Locations_filtered %>% 
   # Load map
   leaflet()  %>%
   addProviderTiles(
@@ -78,10 +82,10 @@ base_map <- All_Services_Locations %>%
 
 
 # Iterate over the service types and add each to the map as a unique group:
-unique(All_Services_Locations$service_type) %>%
+unique(All_Services_Locations_filtered$service_type) %>%
   purrr::walk( function(x) {
     
-    data <- All_Services_Locations %>% 
+    data <- All_Services_Locations_filtered %>% 
       filter(service_type == x)
     
     base_map <<- base_map %>%
@@ -97,12 +101,12 @@ unique(All_Services_Locations$service_type) %>%
 base_map <- base_map %>% 
   addLayersControl(
     position = "topright",
-    overlayGroups = unique(All_Services_Locations$service_type),
+    overlayGroups = unique(All_Services_Locations_filtered$service_type),
     baseGroups = c("Cycle network", "Rail network"),
     # set collapsed = FALSE so that controls always displayed
     options = layersControlOptions(collapsed = FALSE)
   ) %>% 
-  addLegend(data = All_Services_Locations,
+  addLegend(data = All_Services_Locations_filtered,
             position = "bottomleft", 
             title = "Site Type",
             pal = pal, 

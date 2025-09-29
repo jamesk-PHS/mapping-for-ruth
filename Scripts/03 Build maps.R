@@ -14,13 +14,13 @@ library(RColorBrewer) # colour palette
 
 # greenbelt shapefiles
 greenbelt <- read_sf("Greenbelt data/Green_Belt_-_Scotland/pub_grnblt.shp") %>% 
-  filter(str_detect(local_auth, "Lanarkshire")) %>%  # Filtering for necessary data only
+  filter(local_auth %in% local_authorities_oi$CAName) %>%
   st_transform(4326) %>% 
   mutate(colour = "green") # Adding colour variable for mapping
 
 # Scottish Vacant and Derelict Land 
 vdl <- read_sf("Greenbelt data/Vacant_and_Derelict_Land_-_Scotland/pub_vdlPolygon.shp") %>% 
-  filter(str_detect(local_auth, "Lanarkshire")) %>%  # Filtering for necessary data only
+  filter(local_auth %in% local_authorities_oi$CAName) %>%
   st_transform(4326) %>% 
   mutate(colour = case_when(site_type == "Derelict" ~ "brown",
                             site_type == "Vacant Land" ~ "grey"),
@@ -55,8 +55,9 @@ population_density <-  read_sf(temp2) %>%
   left_join(phsopendata::get_resource("395476ab-0720-4740-be07-ff4467141352") %>% 
   janitor::clean_names(),
     
-    by = "data_zone") %>% 
-  filter(hb_name == "NHS Lanarkshire") %>% 
+    by = "data_zone") %>%
+  mutate(hb_name = readable_HB_name(hb_name)) %>%
+  filter(hb_name == healthboard_oi) %>% 
   
   # add most recent pop estimates
   left_join(
