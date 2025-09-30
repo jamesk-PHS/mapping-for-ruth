@@ -22,7 +22,7 @@
 
 # 0. User Inputs ----
 
-healthboard_oi <- "Forth Valley"
+healthboard_oi <- "Lothian"
 
 
 # 1 Housekeeping, setup, etc. ---------------------------------------------
@@ -195,13 +195,13 @@ most_recent_dispenser_sites = package_show(id = "dispenser-location-contact-deta
   pull(id)
 
 # Extract most recent data
-Pharmacy_Locations <- get_resource(most_recent_dispenser_sites) %>%
+Pharmacy_Locations <- get_resource("6ce0616a-5fde-4663-bed4-46ff0908343d") %>%
   dplyr::select(pharm_code = DispCode, pharm_name = DispLocationName, postcode = DispLocationPostcode) %>%
   mutate(pharm_code = as.character(pharm_code)) %>% 
   filter(!(pharm_code %in% pharmacy_filter)) # Removing GP practices from pharmacy data
 
 
-## 2.5 Dentist locations ----
+  ## 2.5 Dentist locations ----
 
 # Identify most recent data
 most_recent_dentist_sites = package_show(id = "dental-practices-and-patient-registrations", url = "https://www.opendata.nhs.scot/", as = "table")[["resources"]] %>%
