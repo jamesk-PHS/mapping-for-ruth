@@ -125,23 +125,6 @@ for (postcode_oi in unique(All_Services_Clustered$postcode)){
   
   if (length(unique_service_types_oi) == 1){
   
-    # cluster_colour <- logos[[unique_service_types_oi]]$markerColor
-
-    # cluster_colour <- case_when(
-    #   
-    #   cluster_colour == "darkgreen" ~ "#728224"
-    #   
-    #   cluster_colour == "darkred" ~ "#973034",
-    #   
-    #   cluster_colour == "beige" ~ "#FFCA91",
-    #   
-    #   cluster_colour == "red" ~ "",
-    #   
-    #   cluster_colour == "blue" ~ "#38A9DC"
-    #   
-    #   
-    # )
-    
     cluster_colour <- pal_site_locations(unique_service_types_oi)
     
     cluster_colour <- paste0("rgba(",paste0(as.vector(col2rgb(cluster_colour,alpha=TRUE)),collapse=", "),")")
